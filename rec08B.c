@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 int main(int argc, char **argv)
 {
@@ -26,11 +27,13 @@ int main(int argc, char **argv)
 		int fd1[2], fd2[2];
 
         // make pipe for cat to grep
+		pipe(fd1);
 		// fd1[0] = read  end of cat->grep pipe (read by grep)
 		// fd1[1] = write end of cat->grep pipe (written by cat)
 		
 
         // make pipe for grep to cut
+		pipe(fd2);
 		// fd2[0] = read  end of grep->cut pipe (read by cut)
 		// fd2[1] = write end of grep->cut pipe (written by grep)
 		
@@ -39,12 +42,14 @@ int main(int argc, char **argv)
 		if (fork() == 0)
 		{
 			// duplicate write end of cat->grep pipe to stdout
+			dup2(fd1[1], 1);
 			
 
 			// close both ends of all created fd# pipes (very important!)
-      			
-      			
-      			
+			close(fd1[0]);
+			close(fd1[1]);
+			close(fd2[0]);
+			close(fd2[1]);
       			
 
             execvp(*cat_args, cat_args);
@@ -55,13 +60,18 @@ int main(int argc, char **argv)
             if (fork() == 0)
 			{
 	  			// duplicate read end of cat->grep pipe to stdin (of grep)
+				dup2(fd1[0], 0);
 	  			
 
 	  			// duplicate write end of grep->cut pipe to stdout (of grep)
+				dup2(fd2[1], 1);
 	  			
 
 	  			// close both ends of all created fd# pipes (very important!)
-	  			
+				close(fd1[0]);
+				close(fd1[1]);
+				close(fd2[0]);
+				close(fd2[1]);
 	  			
 	  			
 	  			
@@ -74,12 +84,14 @@ int main(int argc, char **argv)
 	  			if (fork() == 0)
                 {
                     // duplicate read end of grep->cut pipe to stadin (of cut)
+					dup2(fd2[0], 0);
 	      				
 
                     // close both ends of all created fd# pipes (very important!)
-	      				
-	      				
-	      				
+					close(fd1[0]);
+					close(fd1[1]);
+					close(fd2[0]);
+					close(fd2[1]);
 	      				
 
                     execvp(*cut_args, cut_args);
@@ -95,7 +107,7 @@ int main(int argc, char **argv)
 
   		for (i = 0; i < 3; i++)
 		{
-    			wait(&status);
+    		wait(&status);
 		}
 	}
 	else
